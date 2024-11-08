@@ -1,4 +1,4 @@
-# 通过绝对折扣回退实现彩色图像直方图均衡
+# 通过绝对折扣退避实现彩色图像直方图均衡
 
 ## 摘要
 
@@ -52,7 +52,7 @@ Pitas 和 Kiniklis 提出了一种试图共同平衡强度和饱和度的方法�
 
 由于许多彩色图像具有三个色基，因此每个颜色的图像由 3 维向量 $\overrightarrow{X}$ 表示，并且三个颜色分量中分别执行灰度直方图均衡。
 
-灰度直方图均衡尝试将图像的像素灰度级均匀分布到所有可用的灰度级 $L$（例如使用 8 位表示每个灰度级时 $L=256$）。让我们将图像像素灰度级别视为 rv $\boldsymbol{x}$。灰度图像的直方图是 $\boldsymbol{x}$ 的概率密度函数（PDF），定义为
+灰度直方图均衡尝试将图像的像素灰度级均匀分布到所有可用的灰度级 $L$。让我们将图像像素灰度级别视为 rv $\boldsymbol{x}$。灰度图像的直方图是 $\boldsymbol{x}$ 的概率密度函数（PDF），定义为
 $$
 \begin{equation}
 f_{\boldsymbol{x}}(x_k)=P\{\boldsymbol{x}=x_k\}=\frac{N(x_k)}{\sum_{m=0}^{L-1}N(x_m)}\quad\forall k=0,1,\ldots,L-1,
@@ -65,8 +65,6 @@ y_k=F_{\boldsymbol{x}}(x_k)=P\{\boldsymbol{x}\leqslant x_k\}=\sum_{m=0}^kf(x_m)\
 \end{equation}
 $$
 如上定义变换函数，用于获取均匀分布的均衡图像的灰度等级 $y_k$。
-
-对于彩色图像，假设每个像素的颜色为随机向量 $\overrightarrow{\boldsymbol{X}}=(\boldsymbol{x}_R,\boldsymbol{x}_G,\boldsymbol{x}_B)^T$，其中 $\boldsymbol{x}_R,\boldsymbol{x}_G,\boldsymbol{x}_B$ 是对红色、绿色和蓝色分量进行建模的 rv。因此，通过应用方程 2 可以估计每个颜色分量的均衡直方图。
 
 #### 方法 2：RGB 空间中的 3-D 均衡
 
@@ -111,3 +109,117 @@ $$
 
 #### 方法 4：HSI 空间中强度和饱和度的 2-D 均衡
 
+先前所提出的方法在 HSI 颜色空间中有效，其中每个颜色像素由随机向量 $\overrightarrow{\boldsymbol{X}}=(\boldsymbol{x}_H,\boldsymbol{x}_S,\boldsymbol{x}_I)^T$. 但是，由于色相是颜色的最基本属性，因此更改它会导致不可接受的颜色伪影，该方法仅考虑二维随机变量 $\overrightarrow{\boldsymbol{Z}}=(\boldsymbol{x}_I,\boldsymbol{x}_S)^T$ 而保持色调不变。因此，应当使用联合 CDF $F(\overrightarrow{\boldsymbol{Z}})=F(x_I,x_S)=P\{\boldsymbol{x}_I\le x_I,\boldsymbol{x}_S\le x_S\}$ 对二维直方图进行均衡。
+
+通过利用以下事实，同时对强度和饱和度进行均衡：给定 $n$ 个 rvs $\boldsymbol{x}_i$, rvs $\boldsymbol{y}_i$ 如下所述：
+$$
+\begin{equation}
+\boldsymbol{y}_1=F(\boldsymbol{x}_1),\quad\boldsymbol{y}_2=F(\boldsymbol{x}_2|\boldsymbol{x}_1),\ldots,\boldsymbol{y}_n=F(\boldsymbol{x}_n|\boldsymbol{x}_{n-1},\ldots,\boldsymbol{x}_1)
+\end{equation}
+$$
+是独立且均匀分布在区间 $(0,1)$ 上的。
+
+根据方程 6，均衡的像素值由随机向量 $\overrightarrow{\boldsymbol{Y}}=(\boldsymbol{y}_I,\boldsymbol{y}_S)^T$，其中 $\boldsymbol{y}_I$、$\boldsymbol{y}_S$ 都是 $(0,1)$ 上均匀分布的 rvs，分别通过变换 $\boldsymbol{y}_I=F(\boldsymbol{x}_I)$ 和 $\boldsymbol{y}_S=F(\boldsymbol{x}_S|\boldsymbol{x}_I)$ 求得
+$$
+\begin{equation}
+y_{I_k}=F(x_{I_k})=P\{\boldsymbol{x}_I\le x_{I_k}\}=\sum_{m=0}^kf(x_{I_m})=\sum_{m=0}^kP(\boldsymbol{x}_I=x_{I_m})
+\end{equation}
+$$
+
+$$
+\begin{equation}
+y_{S_t}=F(x_{S_t}|x_{I_k})=\sum_{m=0}^tf(x_{S_m}|x_{I_k})=\sum_{m=0}^t\frac{P(\boldsymbol{x}_I=x_{I_k},\boldsymbol{x}_S=x_{S_m})}{P(\boldsymbol{x}_I=x_{I_k})}.
+\end{equation}
+$$
+
+在公式 7 和 8 中，$k=0,1,\ldots,L-1$ 且 $t=0,1,\ldots,M-1$，其中 $L$ 和 $M$ 分别是强度和饱和度的离散级别数。
+
+##### 概率平滑
+
+选择合适的平滑方法取决于应用程序和数据。在我们的例子中，选择了绝对折扣的退避模型，这使得高计数几乎保持不变。更准确地说，由于我们有两个相互依赖的概率分布来估计，因此进行了多级平滑，以便通过直接的低阶概率分布递归平滑高阶退避概率分布。对于 $k=0,1,\ldots,L-1$ 和 $t=0,1,\ldots,M-1$，结果概率由下式给出：
+$$
+\begin{equation}
+P(\boldsymbol{x}_I=x_{I_k})=P(x_{I_k})=\left\{\begin{array}{ll}\frac{N(x_{I_k})-b_I}N&\text{if }N(x_{I_k})>0\\b_I\frac{L-n_0}{N}\frac{1}{\sum_{i:N(x_{I_i})=0}1}&\text{if }N(x_{I_k})=0,\end{array}\right.
+\end{equation}
+$$
+
+$$
+\begin{equation}
+\begin{aligned}
+&P(\boldsymbol{x}_S=x_{S_t}|\boldsymbol{x}_I=x_{I_k})=P(x_{S_t}|x_{I_t})\\
+&=\left\{\begin{array}{ll}
+\frac{N(x_{I_k},x_{S_t})-b_S}{N(x_{I_k})}&\text{if }N(x_{I_k},x_{S_t})>0\\
+b_S\frac{M-n_0(x_{I_k})}{N(x_{I_k})}\frac{P(x_{S_t})}{\sum_{i:N(x_{I_k},x_{S_i})=0}P(x_{S_i})}&\text{if }N(x_{I_k},x_{S_t})=0.
+\end{array}\right.
+\end{aligned}
+\end{equation}
+$$
+
+在公式 9 和 10 中，以下表示法用于计数和对计数计数：
+
+- $L=M=256$ 为强度和饱和度的离散级别的数量
+- $N$ 是图像像素数
+- $N(\cdot)$ 是具有指定颜色分量值的像素数
+- $n_0$ 是图像中未看到的强度值的数量
+- $n_0(x_{I_k})$ 是给定强度 $x_{I_k},k=0,1,\ldots,L-1$ 下从未见过的饱和度值的数量
+- $n_r^{(I)}=\sum_{i:N(x_{I_i})=r}1$ 是刚好看到 $r$ 次的强度值的数量
+- $n_r^{(S)}=\sum_{i,j,N(x_{I_i},x_{S_j})=r}1$ 是刚好看到 $r$ 次的（强度，饱和度）对的数量
+- $b_I=\frac{n_1^{(I)}}{n_1^{(I)}+2n_2^{(I)}}$
+- $b_S=\frac{n_1^{(S)}}{n_1^{(S)}+2n_2^{(S)}}$
+
+#### 方法 5：HSI 空间的强度-饱和量分量二维均衡以及色域消除
+
+让我们首先简要描述非线性变换在对比度增强中的应用。它基于所谓的 S 型变换，定义如下
+$$
+\begin{equation}
+\left.f_{m,n}(x)=\begin{cases}\delta_1+(m-\delta_1)(\frac{x-\delta_1}{m-\delta_1})^n,&\delta_1\leqslant x\leqslant m\\\delta_2-(\delta_2-m)(\frac{\delta_2-x}{\delta_2-m})^n,&m\leqslant x\leqslant\delta_2,&\end{cases}\right.
+\end{equation}
+$$
+其中 $x$ 表示灰度像素值，而 $m\in[\delta_1,\delta_2],n\in[0,\infty]$ 是两个常数。
+
+## 实验
+
+### 实验结果
+
+均衡图像的质量既可以从视觉吸引力和不需要的色彩伪影的存在来主观地判断，也可以通过使用客观的统计测量方法来判断，例如熵和 Kullback-Leibler 散度。
+
+熵表示随机变量的平均不确定性，并且对于均匀分布来说是最大化的。因此，它包含一个很好的度量，因为更大的熵值显示更均匀的分布。$n$ 个离散 rvs 的熵定义如下
+$$
+\begin{equation}
+\begin{aligned}
+H(\boldsymbol{x}_1,\boldsymbol{x}_2,\ldots,\boldsymbol{x}_n)=&-\sum_{x_1}\sum_{x_2}\ldots\sum_{x_n}P(x_1,x_2,\ldots,x_n)\\
+&\times\log_2P(x_1,x_2,\ldots,x_n).
+\end{aligned}
+\end{equation}
+$$
+以类似的方式，Kullback-Leibler 散度测量两个概率分布之间的差异。在我们的实验中，使用 Kullback-Leibler 散度来测量原始图像和均衡图像的直方图与均匀分布的相似程度。考虑的图像概率是用于熵估计的图像概率。也就是说，对于 $n$ 维情况
+$$
+\begin{equation}
+\begin{aligned}
+D&(f(x_1,x_2,\ldots,x_n)||g(x_u,y_u,\ldots,z_u))\\
+&=\sum_{x_1}\sum_{x_2}\cdots\sum_{x_n}P(x_1,x_2,\ldots,x_n)\\
+&\times\log_2\left(\frac{P(x_1,x_2,\ldots,x_n)}{g(x_1,x_2,\ldots,x_n)}\right),
+\end{aligned}
+\end{equation}
+$$
+其中 $g(x_1,x_2,\ldots,x_n)$ 是在与 $f(x_1,x_2,\ldots,x_n)$ 相同的空间中定义的 $n$ 维均匀分布。
+
+这里展示了五张彩色图像的代表性实验结果，即一个室内场景（索引 1）和一组四个数字化东正教圣像（索引 2-5）。图 3-7 展示了这些图像，以及它们在 RGB 空间上工作的方法的强度水平（方法 1 和 2）和在 HSI 空间上工作的方法的强度和饱和度水平（方法 3 和 4）的直方图。
+
+![F3](.\imgs\Color image histogram equalization by absolute discounting back-off\F3.jpeg)
+
+![F4](./imgs/Color image histogram equalization by absolute discounting back-off/F4.jpeg)
+
+![F5](./imgs/Color image histogram equalization by absolute discounting back-off/F5.jpeg)
+
+![F6](./imgs/Color image histogram equalization by absolute discounting back-off/F6.jpeg)
+
+![F7](./imgs/Color image histogram equalization by absolute discounting back-off/F7.jpeg)
+
+均衡图像的简单经验性比较（图 3-7）表明，所提出的方法 4 产生了最吸引人的结果，而当应用均衡方法 2 时，可以观察到原始图像及其直方图的微小变化。所提出方法的成功可以归因于该方法使沿 $x$ 轴传播的均衡图像的强度直方图保持其形状，这与方法 1 和 3 的扭曲原始直方图形状不同。此外，概率平滑（方法 4）对消除饱和度分量直方图间隙的效果是显而易见的。图 8 展示了使用方法 5 消除色域问题的方法的进一步改进。色域消除从 RGB 空间中的图像及其 3-D 直方图中都很明显。更准确地说，图像中大部分错误的像素值（对应于 3-D 直方图 8b 在红蓝平面上的异常值）在图 8c 中被消除。
+
+![F8](./imgs/Color image histogram equalization by absolute discounting back-off/F8.jpeg)
+
+表 3 和表 4 中分别给出了熵和 Kullback-Leibler 散度的客观测量，验证了上述实证结果。更准确地说，与所有其他方法相比，所提出的方法 4 在原始图像和均衡图像之间实现了更高的熵增加，这意味着所提出的方法产生了更均匀的直方图。方法 4 的增幅为 6% 至 12%，而方法 5 的增幅为 4% 至 8%。相反，对于方法 1 和 2，原始图像和均衡图像之间的熵略有降低。在方法 3 中，熵要么略微增加，要么略有减少。表 4 总结了均衡图像的 Kullback-Leibler 散度结果，结果表明，与其他三种方法相比，所提出的方法 4 和 5 实现了更多的 Kullback-Leibler 散度降低（分别为 22% 至 36% 和 16% 至 30%），这意味着通过所提出的方法获得的均衡图像的直方图比其他方法获得的均衡图像的直方图更类似于均匀分布。对于方法 III，Kullback-Leibler 散度要么增加，要么减少，但这种变化可以忽略不计。
+
+![T3A4](./imgs/Color image histogram equalization by absolute discounting back-off/T3A4.jpeg)
